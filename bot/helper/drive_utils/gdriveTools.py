@@ -225,10 +225,10 @@ class GoogleDriveHelper:
                 self.edit_telegraph()
 
             msg = f"💁🏻‍♂ <b>Found <code>{content_count}" + ("+" if content_count >= 90 else "") + \
-                  " </code> results for <code>{fileName}</code></b>"
+                  f"</code> results for <code>{fileName}</code></b>"
             if reached_max_limit:
-                msg += ". <i>(Only showing top 90 results.)</i>"
+                msg += " <i>(Only showing top 90 results)</i>"
 
             buttons = button_builder.ButtonMaker()
-            buttons.buildbutton("🔎 Tap here for results", f"https://telegra.ph/{self.path[0]}")
+            buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
             return msg, InlineKeyboardMarkup(buttons.build_menu(1))
