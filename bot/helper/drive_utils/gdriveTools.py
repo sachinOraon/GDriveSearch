@@ -151,7 +151,7 @@ class GoogleDriveHelper:
             add_drive_title = True
             response = self.drive_query(parent_id, search_type, fileName)
 
-            INDEX += 0
+            INDEX += 1
             if response:
 
                 for file in response:
@@ -181,9 +181,9 @@ class GoogleDriveHelper:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
                             url = f'{INDEX_URL[INDEX]}/{url_path}/'
-                            vurl = f'{url}?a=view'
+                            vurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
-                            msg += f' 🔗 <b><a href="{vurl}">View Link</a></b>'
+                            msg += f' 📀 <b><a href="{vurl}">View Link</a></b>'
                     msg += '<br><br>'
                     content_count += 1
                     if content_count >= TELEGRAPHLIMIT:
