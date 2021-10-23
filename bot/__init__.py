@@ -31,9 +31,6 @@ except KeyError:
     pass
 
 BOT_TOKEN = None
-
-AUTHORIZED_CHATS = set()
-
 AUTHORIZED_CHATS = set()
 if os.path.exists('authorized_chats.txt'):
     with open('authorized_chats.txt', 'r+') as f:
