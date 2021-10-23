@@ -151,7 +151,7 @@ class GoogleDriveHelper:
             add_drive_title = True
             response = self.drive_query(parent_id, search_type, fileName)
 
-            INDEX += 1
+            INDEX += 0
             if response:
 
                 for file in response:
@@ -162,8 +162,7 @@ class GoogleDriveHelper:
                     if add_drive_title:
                         msg += f"╾────────────╼<br><b>{DRIVE_NAME[INDEX]}</b><br>╾────────────╼<br>"
                         add_drive_title = False
-                    if file.get(
-                            'mimeType') == "application/vnd.google-apps.folder":  # Detect Whether Current Entity is a Folder or File.
+                    if file.get('mimeType') == "application/vnd.google-apps.folder":  # Detect Whether Current Entity is a Folder or File.
                         msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>" \
                                f"🌥️ <b><a href='https://drive.google.com/drive/folders/{file.get('id')}'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
@@ -171,8 +170,12 @@ class GoogleDriveHelper:
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
                             url = f'{INDEX_URL[INDEX]}/{url_path}/'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
-                    elif file.get('mimeType') == 'application/vnd.google-apps.video':
-                        msg += f"🧩 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>" \
+                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut':
+                        msg += f"♻️ <a href='https://drive.google.com/drive/folders/{file.get('id')}'>{file.get('name')}" \
+                               f"</a> (shortcut)"
+                        # Excluded index link as indexes cant download or open these shortcuts
+                    else:
+                        msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>" \
                                f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
@@ -181,18 +184,6 @@ class GoogleDriveHelper:
                             vurl = f'{url}?a=view'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
                             msg += f' 🔗 <b><a href="{vurl}">View Link</a></b>'
-                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut':
-                        msg += f"📌 <a href='https://drive.google.com/drive/folders/{file.get('id')}'>{file.get('name')}" \
-                               f"</a> (shortcut)"
-                        # Excluded index link as indexes cant download or open these shortcuts
-                    else:
-                        msg += f"📄 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>" \
-                               f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
-                        if INDEX_URL[INDEX] is not None:
-                            url_path = "/".join(
-                                [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
-                            url = f'{INDEX_URL[INDEX]}/{url_path}'
-                            msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
                     msg += '<br><br>'
                     content_count += 1
                     if content_count >= TELEGRAPHLIMIT:
