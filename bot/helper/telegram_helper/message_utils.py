@@ -1,10 +1,7 @@
 from telegram.message import Message
 from telegram.update import Update
-import time
-from bot import LOGGER, bot
-from telegram.error import TimedOut, BadRequest
+from bot import LOGGER
 from bot import bot
-from telegram import InlineKeyboardMarkup
 
 
 def sendMessage(text: str, bot, update: Update):

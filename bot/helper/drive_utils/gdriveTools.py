@@ -180,7 +180,7 @@ class GoogleDriveHelper:
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
-                            url = f'{INDEX_URL[INDEX]}/{url_path}/'
+                            url = f'{INDEX_URL[INDEX]}/{url_path}'
                             vurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
                             msg += f' 📀 <b><a href="{vurl}">View Link</a></b>'
