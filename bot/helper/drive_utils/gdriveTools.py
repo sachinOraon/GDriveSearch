@@ -15,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
 SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-TELEGRAPHLIMIT = 90
+TELEGRAPHLIMIT = 50
 
 
 class GoogleDriveHelper:
@@ -26,6 +26,7 @@ class GoogleDriveHelper:
         self.__service = self.authorize()
         self.telegraph_content = []
         self.path = []
+        self.num_of_path = 0
 
     def get_readable_file_size(self, size_in_bytes) -> str:
         if size_in_bytes is None:
@@ -81,33 +82,38 @@ class GoogleDriveHelper:
         return rtnlist
 
     def drive_query(self, parent_id, search_type, fileName):
-        query = ""
-        if search_type is not None:
-            if search_type == '-d':
-                query += "mimeType = 'application/vnd.google-apps.folder' and "
-            elif search_type == '-f':
-                query += "mimeType != 'application/vnd.google-apps.folder' and "
-        var = re.split('[ ._,\\[\\]-]', fileName)
-        for text in var:
-            query += f"name contains '{text}' and "
-        query += "trashed=false"
-        if parent_id != "root":
-            response = self.__service.files().list(supportsTeamDrives=True,
-                                                   includeTeamDriveItems=True,
-                                                   teamDriveId=parent_id,
-                                                   q=query,
-                                                   corpora='drive',
-                                                   spaces='drive',
-                                                   pageSize=1000,
-                                                   fields='files(id, name, mimeType, size, teamDriveId, parents)',
-                                                   orderBy='folder, modifiedTime desc').execute()["files"]
-        else:
-            response = self.__service.files().list(q=query + " and 'me' in owners",
-                                                   pageSize=1000,
-                                                   spaces='drive',
-                                                   fields='files(id, name, mimeType, size, parents)',
-                                                   orderBy='folder, modifiedTime desc').execute()["files"]
-        return response
+        try:
+            query = ""
+            if search_type is not None:
+                if search_type == '-d':
+                    query += "mimeType = 'application/vnd.google-apps.folder' and "
+                elif search_type == '-f':
+                    query += "mimeType != 'application/vnd.google-apps.folder' and "
+            var = re.split('[ ._,\\[\\]-]', fileName)
+            for text in var:
+                query += f"name contains '{text}' and "
+            query += "trashed=false"
+            if parent_id != "root":
+                response = self.__service.files().list(supportsTeamDrives=True,
+                                                       includeTeamDriveItems=True,
+                                                       teamDriveId=parent_id,
+                                                       q=query,
+                                                       corpora='drive',
+                                                       spaces='drive',
+                                                       pageSize=1000,
+                                                       fields='files(id, name, mimeType, size, teamDriveId, parents)',
+                                                       orderBy='folder, modifiedTime desc').execute()["files"]
+            else:
+                response = self.__service.files().list(q=query + " and 'me' in owners",
+                                                       pageSize=1000,
+                                                       spaces='drive',
+                                                       fields='files(id, name, mimeType, size, parents)',
+                                                       orderBy='folder, modifiedTime desc').execute()["files"]
+            return response
+        except Exception as err:
+            err = str(err).replace('>', '').replace('<', '')
+            LOGGER.error(err)
+            return "listErr"
 
     def edit_telegraph(self):
         nxt_page = 1
@@ -145,17 +151,17 @@ class GoogleDriveHelper:
         msg = ''
         INDEX = -1
         content_count = 0
-        reached_max_limit = False
+        all_contents_count = 0
         add_title_msg = True
         for parent_id in DRIVE_ID:
             add_drive_title = True
             response = self.drive_query(parent_id, search_type, fileName)
-
             INDEX += 1
-            if response:
-
+            if response == "listErr":
+                LOGGER.error(f"Error while searching in: {DRIVE_NAME[INDEX]}")
+                continue
+            else:
                 for file in response:
-
                     if add_title_msg:
                         msg = f'<h4>Search Result For: {fileName}</h4><br>'
                         add_title_msg = False
@@ -186,9 +192,11 @@ class GoogleDriveHelper:
                             msg += f' 📀 <b><a href="{vurl}">View Link</a></b>'
                     msg += '<br><br>'
                     content_count += 1
+                    all_contents_count += 1
                     if content_count >= TELEGRAPHLIMIT:
-                        reached_max_limit = True
-                        break
+                        self.telegraph_content.append(msg)
+                        msg = ""
+                        content_count = 0
 
         if msg != '':
             self.telegraph_content.append(msg)
@@ -215,10 +223,7 @@ class GoogleDriveHelper:
             if self.num_of_path > 1:
                 self.edit_telegraph()
 
-            msg = f"💁🏻‍♂ <b>Found <code>{content_count}" + ("+" if content_count >= 90 else "") + \
-                  f"</code> results for <code>{fileName}</code></b>"
-            if reached_max_limit:
-                msg += " <i>(Only showing top 90 results)</i>"
+            msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for <code>{fileName}</code></b>"
 
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
