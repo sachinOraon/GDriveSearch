@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import string
 import time
 
 import telegram.ext as tg
@@ -38,10 +40,21 @@ if os.path.exists('authorized_chats.txt'):
         for line in lines:
             AUTHORIZED_CHATS.add(int(line.split()[0]))
 
+# Generate Telegraph Token
+try:
+    sname = ''.join(random.SystemRandom().choices(string.ascii_letters, k=8))
+    LOGGER.info("Generating TELEGRAPH_TOKEN using '" + sname + "' name")
+    telegraph = Telegraph()
+    telegraph.create_account(short_name=sname)
+    telegraph_token = telegraph.get_access_token()
+    telegra_ph = Telegraph(access_token=telegraph_token)
+except Exception as err:
+    LOGGER.error("Unable to generate token ", err)
+    exit(1)
+
 try:
     BOT_TOKEN = getConfig('BOT_TOKEN')
     OWNER_ID = int(getConfig('OWNER_ID'))
-    telegraph_token = getConfig('TELEGRAPH_TOKEN')
 except KeyError as e:
     LOGGER.error("One or more env variables missing! Exiting now")
     exit(1)
@@ -68,7 +81,6 @@ else :
     LOGGER.error("The README.md file there to be read! Exiting now!")
     exit(1)
 
-telegra_ph = Telegraph(access_token=telegraph_token)
 
 updater = tg.Updater(token=BOT_TOKEN,use_context=True)
 bot = updater.bot

@@ -100,12 +100,12 @@ class GoogleDriveHelper:
                                                        q=query,
                                                        corpora='drive',
                                                        spaces='drive',
-                                                       pageSize=1000,
+                                                       pageSize=100,
                                                        fields='files(id, name, mimeType, size, teamDriveId, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
             else:
                 response = self.__service.files().list(q=query + " and 'me' in owners",
-                                                       pageSize=1000,
+                                                       pageSize=100,
                                                        spaces='drive',
                                                        fields='files(id, name, mimeType, size, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
@@ -155,10 +155,10 @@ class GoogleDriveHelper:
         add_title_msg = True
         for parent_id in DRIVE_ID:
             add_drive_title = True
-            response = self.drive_query(parent_id, search_type, fileName)
             INDEX += 1
+            response = self.drive_query(parent_id, search_type, fileName)
             if response == "listErr":
-                LOGGER.error(f"Error while searching in: {DRIVE_NAME[INDEX]}")
+                LOGGER.error(f"Error while searching: {fileName} in: {DRIVE_NAME[INDEX]}")
                 continue
             else:
                 for file in response:
@@ -204,6 +204,7 @@ class GoogleDriveHelper:
         if len(self.telegraph_content) == 0:
             return "", None
 
+        LOGGER.info(f"Search query: {fileName} Found: {all_contents_count}")
         try:
             for content in self.telegraph_content:
                 self.path.append(telegra_ph.create_page(
