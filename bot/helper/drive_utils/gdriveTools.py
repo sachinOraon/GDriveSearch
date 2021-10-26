@@ -100,12 +100,12 @@ class GoogleDriveHelper:
                                                        q=query,
                                                        corpora='drive',
                                                        spaces='drive',
-                                                       pageSize=100,
+                                                       pageSize=TELEGRAPHLIMIT,
                                                        fields='files(id, name, mimeType, size, teamDriveId, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
             else:
                 response = self.__service.files().list(q=query + " and 'me' in owners",
-                                                       pageSize=100,
+                                                       pageSize=TELEGRAPHLIMIT,
                                                        spaces='drive',
                                                        fields='files(id, name, mimeType, size, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
@@ -120,14 +120,14 @@ class GoogleDriveHelper:
         prev_page = 0
         for content in self.telegraph_content:
             if nxt_page == 1:
-                content += f'<b><a href="https://telegra.ph/{self.path[nxt_page]}">Next</a></b>'
+                content += f'<b><a href="https://telegra.ph/{self.path[nxt_page]}">Next</a></b> ▶️'
                 nxt_page += 1
             else:
                 if prev_page <= self.num_of_path:
-                    content += f'<b><a href="https://telegra.ph/{self.path[prev_page]}">Previous</a></b>'
+                    content += f'◀️ <b><a href="https://telegra.ph/{self.path[prev_page]}">Previous</a></b>'
                     prev_page += 1
                 if nxt_page < self.num_of_path:
-                    content += f'<b> | <a href="https://telegra.ph/{self.path[nxt_page]}">Next</a></b>'
+                    content += f'<b> | <a href="https://telegra.ph/{self.path[nxt_page]}">Next</a></b> ▶️'
                     nxt_page += 1
             telegra_ph.edit_page(path=self.path[prev_page],
                                  title='Gdrive Search',
@@ -138,6 +138,9 @@ class GoogleDriveHelper:
 
     def drive_list(self, fileName):
         search_type = None
+        chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t']
+        for char in chars:
+            fileName = fileName.replace(char, ' ')
         if re.search("^-d ", fileName, re.IGNORECASE):
             search_type = '-d'
             fileName = fileName[2: len(fileName)]
@@ -163,7 +166,7 @@ class GoogleDriveHelper:
             else:
                 for file in response:
                     if add_title_msg:
-                        msg = f'<h4>Search Result For: {fileName}</h4><br>'
+                        msg = f'<h4>Search Results For: {fileName}</h4><br>'
                         add_title_msg = False
                     if add_drive_title:
                         msg += f"╾────────────╼<br><b>{DRIVE_NAME[INDEX]}</b><br>╾────────────╼<br>"
@@ -198,13 +201,14 @@ class GoogleDriveHelper:
                         msg = ""
                         content_count = 0
 
+        LOGGER.info(f"Search query: {fileName} Found: {all_contents_count}")
+
         if msg != '':
             self.telegraph_content.append(msg)
 
         if len(self.telegraph_content) == 0:
             return "", None
 
-        LOGGER.info(f"Search query: {fileName} Found: {all_contents_count}")
         try:
             for content in self.telegraph_content:
                 self.path.append(telegra_ph.create_page(
@@ -224,7 +228,7 @@ class GoogleDriveHelper:
             if self.num_of_path > 1:
                 self.edit_telegraph()
 
-            msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for <code>{fileName}</code></b>"
+            msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
 
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")

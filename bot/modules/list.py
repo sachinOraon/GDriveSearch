@@ -18,7 +18,7 @@ def list_drive(update,context):
         elif msg == "telegraphException" or msg == "error":
             editMessage(f'😵 <b>Error occurred while searching. Please retry</b>❗', reply, button)
         else:
-            editMessage(f'🙅‍♂ <b>No result found for</b> <code>{search}</code>❗', reply)
+            editMessage(f'🙅‍♂ <b>No result found for</b> <i>{search}</i>❗', reply)
     except IndexError:
         sendMessage('😡 <b>Send a search key along with the command</b>❗', context.bot, update)
 
