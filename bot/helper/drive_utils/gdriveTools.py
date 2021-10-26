@@ -17,7 +17,7 @@ logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
 SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 TELEGRAPH_PAGE_SIZE = 50
-TELEGRAPH_MAX_NUMOFPAGE = 2
+TELEGRAPH_MAX_NUMOFPAGE = 3
 MAX_RETRY = 1
 
 
@@ -146,7 +146,7 @@ class GoogleDriveHelper:
         LOGGER.info(f"Truncating the result for: {fileName}")
         self.path.clear()
         try:
-            for index, content in self.telegraph_content:
+            for index, content in enumerate(self.telegraph_content):
                 if index == TELEGRAPH_MAX_NUMOFPAGE:
                     break
                 self.path.append(telegra_ph.create_page(
@@ -159,9 +159,10 @@ class GoogleDriveHelper:
             self.num_of_path = len(self.path)
             if self.num_of_path > 1:
                 self.edit_telegraph()
-            msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>" \
-                  f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}<code> results." \
-                  "Please refine the query to get appropriate results."
+            msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>"
+            if TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE < content_count:
+                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}<code> results." \
+                       "Please refine your query to get appropriate results."
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
             return msg, InlineKeyboardMarkup(buttons.build_menu(1))
