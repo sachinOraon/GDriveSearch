@@ -15,7 +15,7 @@ def list_drive(update,context):
         msg, button = gdrive.drive_list(search)
         if button:
             editMessage(msg, reply, button)
-        elif msg == "telegraphException" or msg == "error":
+        elif msg == "error":
             editMessage(f'😵 <b>Error occurred while searching. Please retry</b>❗', reply, button)
         else:
             editMessage(f'🙅‍♂ <b>No result found for</b> <i>{search}</i>❗', reply)

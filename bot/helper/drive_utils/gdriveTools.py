@@ -4,6 +4,7 @@ import re
 import requests
 import logging
 import telegraph
+import time
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -15,7 +16,9 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
 SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-TELEGRAPHLIMIT = 50
+TELEGRAPH_PAGE_SIZE = 50
+TELEGRAPH_MAX_NUMOFPAGE = 2
+MAX_RETRY = 1
 
 
 class GoogleDriveHelper:
@@ -27,6 +30,9 @@ class GoogleDriveHelper:
         self.telegraph_content = []
         self.path = []
         self.num_of_path = 0
+        self.telegraph_content_size = 0
+        self.search_query = None
+        self.retry_count = 0
 
     def get_readable_file_size(self, size_in_bytes) -> str:
         if size_in_bytes is None:
@@ -100,12 +106,12 @@ class GoogleDriveHelper:
                                                        q=query,
                                                        corpora='drive',
                                                        spaces='drive',
-                                                       pageSize=TELEGRAPHLIMIT,
+                                                       pageSize=TELEGRAPH_PAGE_SIZE,
                                                        fields='files(id, name, mimeType, size, teamDriveId, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
             else:
                 response = self.__service.files().list(q=query + " and 'me' in owners",
-                                                       pageSize=TELEGRAPHLIMIT,
+                                                       pageSize=TELEGRAPH_PAGE_SIZE,
                                                        spaces='drive',
                                                        fields='files(id, name, mimeType, size, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
@@ -136,7 +142,35 @@ class GoogleDriveHelper:
                                  html_content=content)
         return
 
+    def reduce_result_page(self, fileName, content_count):
+        LOGGER.info(f"Truncating the result for: {fileName}")
+        self.path.clear()
+        try:
+            for index, content in self.telegraph_content:
+                if index == TELEGRAPH_MAX_NUMOFPAGE:
+                    break
+                self.path.append(telegra_ph.create_page(
+                    title='Gdrive Search',
+                    author_name='CyberSpace',
+                    author_url='https://github.com/sachinOraon',
+                    html_content=content
+                )['path'])
+
+            self.num_of_path = len(self.path)
+            if self.num_of_path > 1:
+                self.edit_telegraph()
+            msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>" \
+                  f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}<code> results." \
+                  "Please refine the query to get appropriate results."
+            buttons = button_builder.ButtonMaker()
+            buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
+            return msg, InlineKeyboardMarkup(buttons.build_menu(1))
+        except Exception:
+            LOGGER.error(f"Failed to create page for: {fileName}")
+            return "error", None
+
     def drive_list(self, fileName):
+        self.search_query = fileName
         search_type = None
         chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t']
         for char in chars:
@@ -196,17 +230,18 @@ class GoogleDriveHelper:
                     msg += '<br><br>'
                     content_count += 1
                     all_contents_count += 1
-                    if content_count >= TELEGRAPHLIMIT:
+                    if content_count >= TELEGRAPH_PAGE_SIZE:
                         self.telegraph_content.append(msg)
                         msg = ""
                         content_count = 0
 
-        LOGGER.info(f"Search query: {fileName} Found: {all_contents_count}")
+        LOGGER.info(f"Search: {fileName} Found: {all_contents_count}")
+        self.telegraph_content_size = len(self.telegraph_content)
 
         if msg != '':
             self.telegraph_content.append(msg)
 
-        if len(self.telegraph_content) == 0:
+        if self.telegraph_content_size == 0:
             return "", None
 
         try:
@@ -217,12 +252,20 @@ class GoogleDriveHelper:
                     author_url='https://github.com/sachinOraon',
                     html_content=content
                 )['path'])
-        except telegraph.TelegraphException as e:
-            LOGGER.error("Failed to create telegraph page")
-            return "telegraphException", None
+        except telegraph.TelegraphException:
+            LOGGER.error(f"Failed to create telegraph page for: {fileName}")
+            return self.reduce_result_page(fileName, all_contents_count)
         except Exception as e:
-            LOGGER.error(e)
-            return "error", None
+            if self.retry_count < MAX_RETRY:
+                LOGGER.error(f"Error searching: {fileName} Retrying after 5 sec")
+                time.sleep(5)
+                self.telegraph_content.clear()
+                self.path.clear()
+                self.retry_count += 1
+                self.drive_list(self.search_query)
+            else:
+                LOGGER.error(f"Error searching: {fileName}", e)
+                return "error", None
         else:
             self.num_of_path = len(self.path)
             if self.num_of_path > 1:
