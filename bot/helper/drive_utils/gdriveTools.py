@@ -167,7 +167,7 @@ class GoogleDriveHelper:
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
             return msg, InlineKeyboardMarkup(buttons.build_menu(1))
         except Exception as e:
-            LOGGER.error(f"Failed to create page for: {fileName} error: ", str(e))
+            LOGGER.error(f"Failed to create page for: {fileName} error: {str(e)}")
             return "error", None
 
     def drive_list(self, fileName):
@@ -264,7 +264,7 @@ class GoogleDriveHelper:
                 self.retry_count += 1
                 return self.drive_list(self.search_query)
             else:
-                LOGGER.error(f"Error searching: {fileName}", str(e))
+                LOGGER.error(f"Error searching: {fileName} error: {str(e)}")
                 return "error", None
         else:
             self.num_of_path = len(self.path)
