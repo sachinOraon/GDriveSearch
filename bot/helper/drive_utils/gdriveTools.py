@@ -146,19 +146,25 @@ class GoogleDriveHelper:
         LOGGER.info(f"Truncating the result for: {fileName}")
         self.path.clear()
         try:
-            for index, content in enumerate(self.telegraph_content):
-                if index == TELEGRAPH_MAX_NUMOFPAGE:
-                    break
-                self.path.append(telegra_ph.create_page(
-                    title='Gdrive Search',
-                    author_name='CyberSpace',
-                    author_url='https://github.com/sachinOraon',
-                    html_content=content
-                )['path'])
+            #for index, content in enumerate(self.telegraph_content):
+            #    if index == TELEGRAPH_MAX_NUMOFPAGE:
+            #        break
+            #    self.path.append(telegra_ph.create_page(
+            #        title='Gdrive Search',
+            #        author_name='CyberSpace',
+            #        author_url='https://github.com/sachinOraon',
+            #        html_content=content
+            #    )['path'])
 
-            self.num_of_path = len(self.path)
-            if self.num_of_path > 1:
-                self.edit_telegraph()
+            #self.num_of_path = len(self.path)
+            #if self.num_of_path > 1:
+            #    self.edit_telegraph()
+            self.path.append(telegra_ph.create_page(
+                title='Gdrive Search',
+                author_name='CyberSpace',
+                author_url='https://github.com/sachinOraon',
+                html_content=self.telegraph_content[0]
+            )['path'])
             msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>"
             if TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE < content_count:
                 msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}</code> results. " \
@@ -253,7 +259,7 @@ class GoogleDriveHelper:
                     html_content=content
                 )['path'])
         except telegraph.TelegraphException:
-            LOGGER.error(f"Failed to create telegraph page for: {fileName}")
+            LOGGER.error(f"Failed to create telegraph page for: {fileName} Total Page: {self.telegraph_content_size}")
             return self.reduce_result_page(fileName, all_contents_count)
         except Exception as e:
             if self.retry_count < MAX_RETRY:
