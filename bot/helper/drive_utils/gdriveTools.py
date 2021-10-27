@@ -161,13 +161,13 @@ class GoogleDriveHelper:
                 self.edit_telegraph()
             msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>"
             if TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE < content_count:
-                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}</code> results." \
+                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}</code> results. " \
                        "Please refine your query to get appropriate results."
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
             return msg, InlineKeyboardMarkup(buttons.build_menu(1))
-        except Exception:
-            LOGGER.error(f"Failed to create page for: {fileName}")
+        except Exception as e:
+            LOGGER.error(f"Failed to create page for: {fileName} error: ", e)
             return "error", None
 
     def drive_list(self, fileName):
@@ -237,11 +237,10 @@ class GoogleDriveHelper:
                         content_count = 0
 
         LOGGER.info(f"Search: {fileName} Found: {all_contents_count}")
-        self.telegraph_content_size = len(self.telegraph_content)
-
         if msg != '':
             self.telegraph_content.append(msg)
 
+        self.telegraph_content_size = len(self.telegraph_content)
         if self.telegraph_content_size == 0:
             return "", None
 
