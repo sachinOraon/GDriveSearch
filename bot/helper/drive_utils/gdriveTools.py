@@ -161,7 +161,7 @@ class GoogleDriveHelper:
                 self.edit_telegraph()
             msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>"
             if TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE < content_count:
-                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}<code> results." \
+                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}</code> results." \
                        "Please refine your query to get appropriate results."
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
@@ -263,7 +263,7 @@ class GoogleDriveHelper:
                 self.telegraph_content.clear()
                 self.path.clear()
                 self.retry_count += 1
-                self.drive_list(self.search_query)
+                return self.drive_list(self.search_query)
             else:
                 LOGGER.error(f"Error searching: {fileName}", e)
                 return "error", None
