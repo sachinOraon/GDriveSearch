@@ -19,6 +19,7 @@ SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 TELEGRAPH_PAGE_SIZE = 50
 TELEGRAPH_MAX_NUMOFPAGE = 2
 MAX_RETRY = 1
+SLEEP_SEC = 5
 
 
 class GoogleDriveHelper:
@@ -33,6 +34,9 @@ class GoogleDriveHelper:
         self.telegraph_content_size = 0
         self.search_query = None
         self.retry_count = 0
+        self.isDriveLink = True
+        self.initial_res = None
+        self.telegraph_page_size = TELEGRAPH_PAGE_SIZE
 
     def get_readable_file_size(self, size_in_bytes) -> str:
         if size_in_bytes is None:
@@ -142,42 +146,16 @@ class GoogleDriveHelper:
                                  html_content=content)
         return
 
-    def reduce_result_page(self, fileName, content_count):
-        LOGGER.info(f"Truncating the result for: {fileName}")
+    def retry_drive_list(self):
+        time.sleep(SLEEP_SEC)
+        self.telegraph_content.clear()
         self.path.clear()
-        try:
-            #for index, content in enumerate(self.telegraph_content):
-            #    if index == TELEGRAPH_MAX_NUMOFPAGE:
-            #        break
-            #    self.path.append(telegra_ph.create_page(
-            #        title='Gdrive Search',
-            #        author_name='CyberSpace',
-            #        author_url='https://github.com/sachinOraon',
-            #        html_content=content
-            #    )['path'])
-
-            #self.num_of_path = len(self.path)
-            #if self.num_of_path > 1:
-            #    self.edit_telegraph()
-            self.path.append(telegra_ph.create_page(
-                title='Gdrive Search',
-                author_name='CyberSpace',
-                author_url='https://github.com/sachinOraon',
-                html_content=self.telegraph_content[0]
-            )['path'])
-            msg = f"💁🏻‍♂ <b>Found <code>{content_count}</code> results for </b><i>{fileName}</i>"
-            if TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE < content_count:
-                msg += f"\n⚠️ Only showing top <code>{TELEGRAPH_PAGE_SIZE * TELEGRAPH_MAX_NUMOFPAGE}</code> results. " \
-                       "Please refine your query to get appropriate results."
-            buttons = button_builder.ButtonMaker()
-            buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
-            return msg, InlineKeyboardMarkup(buttons.build_menu(1))
-        except Exception as e:
-            LOGGER.error(f"Failed to create page for: {fileName} error: {str(e)}")
-            return "error", None
+        self.retry_count += 1
+        return self.drive_list(self.search_query)
 
     def drive_list(self, fileName):
-        self.search_query = fileName
+        if self.search_query is None:
+            self.search_query = fileName
         search_type = None
         chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t']
         for char in chars:
@@ -200,6 +178,8 @@ class GoogleDriveHelper:
         for parent_id in DRIVE_ID:
             add_drive_title = True
             INDEX += 1
+            if all_contents_count > (self.telegraph_page_size * TELEGRAPH_MAX_NUMOFPAGE) and not self.isDriveLink:
+                break
             response = self.drive_query(parent_id, search_type, fileName)
             if response == "listErr":
                 LOGGER.error(f"Error while searching: {fileName} in: {DRIVE_NAME[INDEX]}")
@@ -213,20 +193,22 @@ class GoogleDriveHelper:
                         msg += f"╾────────────╼<br><b>{DRIVE_NAME[INDEX]}</b><br>╾────────────╼<br>"
                         add_drive_title = False
                     if file.get('mimeType') == "application/vnd.google-apps.folder":  # Detect Whether Current Entity is a Folder or File.
-                        msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>" \
-                               f"🌥️ <b><a href='https://drive.google.com/drive/folders/{file.get('id')}'>Drive Link</a></b>"
+                        msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>"
+                        if self.isDriveLink:
+                            msg += f"🌥️ <b><a href='https://drive.google.com/drive/folders/{file.get('id')}'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
                             url = f'{INDEX_URL[INDEX]}/{url_path}/'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
-                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut':
+                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut' and self.isDriveLink:
                         msg += f"♻️ <a href='https://drive.google.com/drive/folders/{file.get('id')}'>{file.get('name')}" \
                                f"</a> (shortcut)"
                         # Excluded index link as indexes cant download or open these shortcuts
                     else:
-                        msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>" \
-                               f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
+                        msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
+                        if self.isDriveLink:
+                            msg += f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
@@ -237,12 +219,15 @@ class GoogleDriveHelper:
                     msg += '<br><br>'
                     content_count += 1
                     all_contents_count += 1
-                    if content_count >= TELEGRAPH_PAGE_SIZE:
+                    if content_count >= self.telegraph_page_size:
                         self.telegraph_content.append(msg)
                         msg = ""
                         content_count = 0
 
         LOGGER.info(f"Search: {fileName} Found: {all_contents_count}")
+        if self.initial_res is None:
+            self.initial_res = all_contents_count
+
         if msg != '':
             self.telegraph_content.append(msg)
 
@@ -259,16 +244,20 @@ class GoogleDriveHelper:
                     html_content=content
                 )['path'])
         except telegraph.TelegraphException:
-            LOGGER.error(f"Failed to create telegraph page for: {fileName} Total Page: {self.telegraph_content_size}")
-            return self.reduce_result_page(fileName, all_contents_count)
+            LOGGER.error(f"Failed to create page for: {fileName}")
+            if self.retry_count < MAX_RETRY:
+                self.isDriveLink = False
+                self.telegraph_page_size -= 10
+                LOGGER.info(f"Retry search and page creation for: {fileName}")
+                return self.retry_drive_list()
+            else:
+                LOGGER.error(f"Failed to create page for: {fileName} even after retrying")
+                return "error", None
         except Exception as e:
             if self.retry_count < MAX_RETRY:
                 LOGGER.error(f"Error searching: {fileName} Retrying after 5 sec")
-                time.sleep(5)
-                self.telegraph_content.clear()
-                self.path.clear()
-                self.retry_count += 1
-                return self.drive_list(self.search_query)
+                self.isDriveLink = True
+                return self.retry_drive_list()
             else:
                 LOGGER.error(f"Error searching: {fileName} error: {str(e)}")
                 return "error", None
@@ -277,7 +266,12 @@ class GoogleDriveHelper:
             if self.num_of_path > 1:
                 self.edit_telegraph()
 
-            msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
+            if self.isDriveLink:
+                msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
+            else:
+                msg = f"💁🏻‍♂ <b>Found <code>{self.initial_res}</code> results for </b><i>{fileName}</i>"
+                msg += f"\n⚠️ Showing only top <code>{all_contents_count}</code> results. " \
+                       "Please refine your query to get appropriate results."
 
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
