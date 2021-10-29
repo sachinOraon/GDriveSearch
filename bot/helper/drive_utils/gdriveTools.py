@@ -251,15 +251,16 @@ class GoogleDriveHelper:
                 LOGGER.info(f"Retry search and page creation for: {fileName}")
                 return self.retry_drive_list()
             else:
-                LOGGER.error(f"Failed to create page for: {fileName} even after retrying")
+                if not self.isDriveLink:
+                    LOGGER.error(f"Failed to create page for: {fileName} even after retrying")
                 return "error", None
         except Exception as e:
             if self.retry_count < MAX_RETRY:
-                LOGGER.error(f"Error searching: {fileName} Retrying after 5 sec")
+                LOGGER.error(f"Telegraph error for: {fileName} Retrying after 5 sec")
                 self.isDriveLink = True
                 return self.retry_drive_list()
             else:
-                LOGGER.error(f"Error searching: {fileName} error: {str(e)}")
+                LOGGER.error(f"Telegraph error for: {fileName} msg: {str(e)}")
                 return "error", None
         else:
             self.num_of_path = len(self.path)
@@ -270,8 +271,8 @@ class GoogleDriveHelper:
                 msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
             else:
                 msg = f"💁🏻‍♂ <b>Found <code>{self.initial_res}</code> results for </b><i>{fileName}</i>"
-                msg += f"\n⚠️ Showing only top <code>{all_contents_count}</code> results. " \
-                       "Please refine your query to get appropriate results."
+                msg += "\n⚠️ Showing only top <code>"+(all_contents_count if self.initial_res > all_contents_count else self.initial_res)
+                msg += "</code> results. Please refine your query to get appropriate results."
 
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
