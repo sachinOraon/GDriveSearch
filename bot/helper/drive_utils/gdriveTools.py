@@ -206,7 +206,10 @@ class GoogleDriveHelper:
                                f"</a> (shortcut)"
                         # Excluded index link as indexes cant download or open these shortcuts
                     else:
-                        msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
+                        try:
+                            msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
+                        except TypeError:
+                            msg += f"📌 <code>{file.get('name')}</code><br>"
                         if self.isDriveLink:
                             msg += f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
@@ -271,7 +274,7 @@ class GoogleDriveHelper:
                 msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
             else:
                 msg = f"💁🏻‍♂ <b>Found <code>{self.initial_res}</code> results for </b><i>{fileName}</i>"
-                msg += "\n⚠️ Showing only top <code>"+(all_contents_count if self.initial_res > all_contents_count else self.initial_res)
+                msg += "\n⚠️ Showing only top <code>"+str(all_contents_count) if self.initial_res > all_contents_count else str(self.initial_res)
                 msg += "</code> results. Please refine your query to get appropriate results."
 
             buttons = button_builder.ButtonMaker()
