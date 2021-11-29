@@ -79,7 +79,7 @@ class GoogleDriveHelper:
             rootid = self.__service.files().get(fileId='root', fields="id").execute().get('id')
         x = file.get("name")
         y = file.get("id")
-        while (y != rootid):
+        while y != rootid:
             rtnlist.append(x)
             file = self.__service.files().get(
                 fileId=file.get("parents")[0],
@@ -101,6 +101,9 @@ class GoogleDriveHelper:
                     query += "mimeType != 'application/vnd.google-apps.folder' and "
             var = re.split('[ ._,\\[\\]-]', fileName)
             for text in var:
+                if re.search("2160", text) or re.search("1080", text) or \
+                        re.search("720", text) or re.search("480", text):
+                    continue
                 query += f"name contains '{text}' and "
             query += "trashed=false"
             if parent_id != "root":
@@ -157,6 +160,7 @@ class GoogleDriveHelper:
         if self.search_query is None:
             self.search_query = fileName
         search_type = None
+        quality_check = None
         chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t']
         for char in chars:
             fileName = fileName.replace(char, ' ')
@@ -166,6 +170,14 @@ class GoogleDriveHelper:
         elif re.search("^-f ", fileName, re.IGNORECASE):
             search_type = '-f'
             fileName = fileName[2: len(fileName)]
+        if re.search("2160", fileName):
+            quality_check = "2160"
+        elif re.search("1080", fileName):
+            quality_check = "1080"
+        elif re.search("720", fileName):
+            quality_check = "720"
+        elif re.search("480", fileName):
+            quality_check = "480"
         if len(fileName) > 2:
             remove_list = ['A', 'a', 'X', 'x']
             if fileName[1] == ' ' and fileName[0] in remove_list:
@@ -186,13 +198,16 @@ class GoogleDriveHelper:
                 continue
             else:
                 for file in response:
+                    if quality_check is not None and not re.search(quality_check, file.get('name')):
+                        continue
                     if add_title_msg:
                         msg = f'<h4>Search Results For: {fileName}</h4><br>'
                         add_title_msg = False
                     if add_drive_title:
                         msg += f"╾────────────╼<br><b>{DRIVE_NAME[INDEX]}</b><br>╾────────────╼<br>"
                         add_drive_title = False
-                    if file.get('mimeType') == "application/vnd.google-apps.folder":  # Detect Whether Current Entity is a Folder or File.
+                    # Detect Whether Current Entity is a Folder or File.
+                    if file.get('mimeType') == "application/vnd.google-apps.folder":
                         msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>"
                         if self.isDriveLink:
                             msg += f"🌥️ <b><a href='https://drive.google.com/drive/folders/{file.get('id')}'>Drive Link</a></b>"
