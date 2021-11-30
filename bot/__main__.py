@@ -6,17 +6,20 @@ from bot.helper.telegram_helper.message_utils import *
 from .helper.telegram_helper.filters import CustomFilters
 from .modules import authorize, list
 
+
 @run_async
 def start(update, context):
     LOGGER.info('UID: {} - UN: {} - MSG: {}'.format(update.message.chat.id,update.message.chat.username,update.message.text))
     if update.message.chat.type == "private" :
         sendMessage(f"Hey <b>{update.message.chat.first_name}</b>. Welcome to <b>Google Drive Search Bot</b>. Use <code>/{BotCommands.ListCommand} query</code> to search.", context.bot, update)
-    else :
+    else:
         sendMessage("I'm alive :)", context.bot, update)
+
 
 @run_async
 def log(update, context):
     sendLogFile(context.bot, update)
+
 
 def main():
 
@@ -26,9 +29,10 @@ def main():
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(log_handler)
 
-    updater.start_polling()
+    updater.start_polling(drop_pending_updates=True)
     LOGGER.info("Yeah I'm running!")
     threading.Thread(target=app_cycling).start()
     updater.idle()
+
 
 main()

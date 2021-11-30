@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 from telegraph import Telegraph
 
-botStartTime = time.time()
 if os.path.exists('log.txt'):
     with open('log.txt', 'r+') as f:
         f.truncate(0)
@@ -88,9 +87,10 @@ dispatcher = updater.dispatcher
 
 
 def app_cycling():
-    RESET_MINS = 10
+    RESET_MINS = 1200
     WAIT_SEC = 10
     POLLING_INT = (int(RESET_MINS/2))*60
+    botStartTime = time.time()
     LOGGER.info(f"App cycling func started..restarting app every {RESET_MINS} mins")
     while True:
         time.sleep(POLLING_INT)
@@ -103,9 +103,9 @@ def app_cycling():
                 LOGGER.info(f"waiting for {WAIT_SEC} sec")
                 time.sleep(WAIT_SEC)
                 LOGGER.info("Starting tg updater")
-                updater.start_polling()
+                updater.start_polling(drop_pending_updates=True)
             except Exception as e:
                 LOGGER.error(f"Failed to cycle: {str(e)}")
             else:
                 LOGGER.info("Cycling completed")
-
+                botStartTime = time.time()
