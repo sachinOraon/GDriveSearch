@@ -29,7 +29,7 @@ def main():
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(log_handler)
 
-    updater.start_polling(drop_pending_updates=True)
+    updater.start_polling()
     LOGGER.info("Yeah I'm running!")
     threading.Thread(target=app_cycling).start()
     updater.idle()

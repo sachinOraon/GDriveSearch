@@ -3,7 +3,6 @@ import os
 import random
 import string
 import time
-
 import telegram.ext as tg
 from dotenv import load_dotenv
 
@@ -19,8 +18,10 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 load_dotenv('config.env')
 
+
 def getConfig(name: str):
     return os.environ[name]
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,9 +75,9 @@ if os.path.exists('drive_folder'):
             except IndexError as e:
                 INDEX_URL.append(None)
 
-if DRIVE_ID :
+if DRIVE_ID:
     pass
-else :
+else:
     LOGGER.error("The README.md file there to be read! Exiting now!")
     exit(1)
 
@@ -103,7 +104,7 @@ def app_cycling():
                 LOGGER.info(f"waiting for {WAIT_SEC} sec")
                 time.sleep(WAIT_SEC)
                 LOGGER.info("Starting tg updater")
-                updater.start_polling(drop_pending_updates=True)
+                updater.start_polling()
             except Exception as e:
                 LOGGER.error(f"Failed to cycle: {str(e)}")
             else:
