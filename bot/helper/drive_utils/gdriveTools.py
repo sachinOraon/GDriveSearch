@@ -91,7 +91,7 @@ class GoogleDriveHelper:
         rtnlist.reverse()
         return rtnlist
 
-    def drive_query(self, parent_id, search_type, fileName):
+    def drive_query(self, parent_id, search_type, fileName, quality_check):
         try:
             query = ""
             if search_type is not None:
@@ -101,8 +101,7 @@ class GoogleDriveHelper:
                     query += "mimeType != 'application/vnd.google-apps.folder' and "
             var = re.split('[ ._,\\[\\]-]', fileName)
             for text in var:
-                if re.search("2160", text) or re.search("1080", text) or \
-                        re.search("720", text) or re.search("480", text):
+                if quality_check and re.search(quality_check, text):
                     continue
                 query += f"name contains '{text}' and "
             query += "trashed=false"
@@ -192,13 +191,13 @@ class GoogleDriveHelper:
             INDEX += 1
             if all_contents_count > (self.telegraph_page_size * TELEGRAPH_MAX_NUMOFPAGE) and not self.isDriveLink:
                 break
-            response = self.drive_query(parent_id, search_type, fileName)
+            response = self.drive_query(parent_id, search_type, fileName, quality_check)
             if response == "listErr":
                 LOGGER.error(f"Error while searching: {fileName} in: {DRIVE_NAME[INDEX]}")
                 continue
             else:
                 for file in response:
-                    if quality_check is not None and not re.search(quality_check, file.get('name')):
+                    if quality_check and not re.search(quality_check, file.get('name')):
                         continue
                     if add_title_msg:
                         msg = f'<h4>Search Results For: {fileName}</h4><br>'

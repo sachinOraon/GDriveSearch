@@ -1,5 +1,6 @@
+import threading
 from telegram.ext import CommandHandler, run_async
-from bot import dispatcher, updater
+from bot import dispatcher, updater, app_cycling
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.message_utils import *
 from .helper.telegram_helper.filters import CustomFilters
@@ -27,6 +28,7 @@ def main():
 
     updater.start_polling()
     LOGGER.info("Yeah I'm running!")
+    threading.Thread(target=app_cycling).start()
     updater.idle()
 
 main()

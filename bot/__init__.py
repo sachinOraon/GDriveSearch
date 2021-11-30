@@ -85,3 +85,27 @@ else :
 updater = tg.Updater(token=BOT_TOKEN,use_context=True)
 bot = updater.bot
 dispatcher = updater.dispatcher
+
+
+def app_cycling():
+    RESET_MINS = 10
+    WAIT_SEC = 10
+    POLLING_INT = (int(RESET_MINS/2))*60
+    LOGGER.info(f"App cycling func started..restarting app every {RESET_MINS} mins")
+    while True:
+        time.sleep(POLLING_INT)
+        elapsed_secs = int(time.time() - botStartTime)
+        mins_passed = int(elapsed_secs/60)
+        if mins_passed >= RESET_MINS:
+            LOGGER.info("Cycling started..Stopping tg updater")
+            try:
+                updater.stop()
+                LOGGER.info(f"waiting for {WAIT_SEC} sec")
+                time.sleep(WAIT_SEC)
+                LOGGER.info("Starting tg updater")
+                updater.start_polling()
+            except Exception as e:
+                LOGGER.error(f"Failed to cycle: {str(e)}")
+            else:
+                LOGGER.info("Cycling completed")
+
