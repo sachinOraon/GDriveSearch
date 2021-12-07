@@ -229,13 +229,13 @@ class GoogleDriveHelper:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
                             iurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
-                            msg += f' ⚡️ <b><a href="{iurl}">Index Link</a></b>'
+                            msg += f'⚡️ <b><a href="{iurl}">Index Link</a></b>'
                         if HEROKU_INDEX_URL is not None:
                             vurl = f'vlc://{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
                             murl = f'intent:{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
                             murl += f'#Intent;package=com.mxtech.videoplayer.ad;S.title={file.get("name")};end'
                             nurl = f'nplayer-{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
-                            durl = f'{HEROKU_INDEX_URL}/api/file/download/{requests.util.quote(file.get("name"), safe="")}?id={file.get("id")}'
+                            durl = f'{HEROKU_INDEX_URL}/api/file/download/{requests.utils.quote(file.get("name"), safe="")}?id={file.get("id")}'
                             msg += f' 📥 <b><a href="{durl}">Download</a></b>'
                             msg += f' 📀 <b><a href="{vurl}">VLC</a></b>'
                             msg += f' 🌀 <b><a href="{murl}">MX Player</a></b>'
