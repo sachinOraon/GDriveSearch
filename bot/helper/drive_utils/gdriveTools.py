@@ -10,7 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from telegram import InlineKeyboardMarkup
 from bot.helper.telegram_helper import button_builder
-from bot import DRIVE_NAME, DRIVE_ID, INDEX_URL, telegra_ph
+from bot import DRIVE_NAME, DRIVE_ID, INDEX_URL, telegra_ph, HEROKU_INDEX_URL
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
@@ -208,8 +208,6 @@ class GoogleDriveHelper:
                     # Detect Whether Current Entity is a Folder or File.
                     if file.get('mimeType') == "application/vnd.google-apps.folder":
                         msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>"
-                        if self.isDriveLink:
-                            msg += f"🌥️ <b><a href='https://drive.google.com/drive/folders/{file.get('id')}'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
@@ -224,15 +222,19 @@ class GoogleDriveHelper:
                             msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
                         except TypeError:
                             msg += f"📌 <code>{file.get('name')}</code><br>"
-                        if self.isDriveLink:
-                            msg += f"🌥️ <b><a href='https://drive.google.com/uc?id={file.get('id')}&export=download'>Drive Link</a></b>"
                         if INDEX_URL[INDEX] is not None:
                             url_path = "/".join(
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
-                            url = f'{INDEX_URL[INDEX]}/{url_path}'
-                            vurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
-                            msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
-                            msg += f' 📀 <b><a href="{vurl}">View Link</a></b>'
+                            iurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
+                            msg += f' ⚡️ <b><a href="{iurl}">Index Link</a></b>'
+                        if HEROKU_INDEX_URL is not None:
+                            vurl = f'vlc://{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
+                            murl = f'intent:{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
+                            murl += f'#Intent;package=com.mxtech.videoplayer.ad;S.title={file.get("name")};end'
+                            nurl = f'nplayer-{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
+                            msg += f' 📀 <b><a href="{vurl}">VLC</a></b>'
+                            msg += f' 🌀 <b><a href="{murl}">MX Player</a></b>'
+                            msg += f' 🔆 <b><a href="{nurl}">nPlayer</a></b>'
                     msg += '<br><br>'
                     content_count += 1
                     all_contents_count += 1

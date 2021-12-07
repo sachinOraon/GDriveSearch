@@ -59,6 +59,12 @@ except KeyError as e:
     LOGGER.error("One or more env variables missing! Exiting now")
     exit(1)
 
+try:
+    HEROKU_INDEX_URL = getConfig('HEROKU_INDEX_URL')
+except Exception as err:
+    LOGGER.error("Unable to read HEROKU_INDEX_URL")
+    HEROKU_INDEX_URL = None
+
 DRIVE_NAME = []
 DRIVE_ID = []
 INDEX_URL = []
