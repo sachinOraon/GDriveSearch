@@ -213,6 +213,9 @@ class GoogleDriveHelper:
                                 [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
                             url = f'{INDEX_URL[INDEX]}/{url_path}/'
                             msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
+                        if HEROKU_INDEX_URL is not None:
+                            hurl = f'{HEROKU_INDEX_URL}/{file.get("id")}'
+                            msg += f' 🔗 <b><a href="{hurl}">Index 2 Link</a></b>'
                     elif file.get('mimeType') == 'application/vnd.google-apps.shortcut' and self.isDriveLink:
                         msg += f"♻️ <a href='https://drive.google.com/drive/folders/{file.get('id')}'>{file.get('name')}" \
                                f"</a> (shortcut)"
@@ -232,6 +235,8 @@ class GoogleDriveHelper:
                             murl = f'intent:{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
                             murl += f'#Intent;package=com.mxtech.videoplayer.ad;S.title={file.get("name")};end'
                             nurl = f'nplayer-{HEROKU_INDEX_URL}/api/file/download/{file.get("id")}'
+                            durl = f'{HEROKU_INDEX_URL}/api/file/download/{requests.util.quote(file.get("name"), safe="")}?id={file.get("id")}'
+                            msg += f' 📥 <b><a href="{durl}">Download</a></b>'
                             msg += f' 📀 <b><a href="{vurl}">VLC</a></b>'
                             msg += f' 🌀 <b><a href="{murl}">MX Player</a></b>'
                             msg += f' 🔆 <b><a href="{nurl}">nPlayer</a></b>'
