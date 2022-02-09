@@ -16,11 +16,11 @@ def list_drive(update,context):
         if button:
             editMessage(msg, reply, button)
         elif msg == "error":
-            editMessage(f'😵 <b>Error occurred while searching. Please retry</b>❗\nYou can use <code>/srch -d query</code> for tv/web series.', reply, button)
+            editMessage(f'😵 <b>Error occurred while searching. Please retry</b>❗\nYou can use <code>/srch -d query</code> for tv/web series or append year of release to further refine the query.', reply, button)
         else:
             editMessage(f'🙅‍♂ <b>No result found for</b> <i>{search}</i>❗', reply)
     except IndexError:
-        sendMessage('😡 <b>Send a search query along with the command</b>❗\nYou can use <code>/srch -d query</code> for tv/web series.', context.bot, update)
+        sendMessage('😡 <b>Send a search query along with the command</b>❗\nYou can use <code>/srch -d query</code> for tv/web series or append year of release to further refine the query.', context.bot, update)
     except AttributeError as e:
         LOGGER.error(f"msg: {str(e)}")
 

@@ -10,7 +10,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from telegram import InlineKeyboardMarkup
 from bot.helper.telegram_helper import button_builder
-from bot import DRIVE_NAME, DRIVE_ID, INDEX_URL, telegra_ph, HEROKU_INDEX_URL
+from telegraph.exceptions import RetryAfterError, ParsingException, NotAllowedTag, InvalidHTML
+from bot import DRIVE_NAME, DRIVE_ID, INDEX_URL, telegra_ph, HEROKU_INDEX_URL, DLWORKER_URL1, DLWORKER_URL2
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
@@ -18,8 +19,9 @@ logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 TELEGRAPH_PAGE_SIZE = 50
 TELEGRAPH_MAX_NUMOFPAGE = 2
-MAX_RETRY = 1
-SLEEP_SEC = 5
+MAX_RETRY = 2
+SLEEP_SEC = 3
+INDEX_PAGES = {}
 
 
 class GoogleDriveHelper:
@@ -34,9 +36,10 @@ class GoogleDriveHelper:
         self.telegraph_content_size = 0
         self.search_query = None
         self.retry_count = 0
-        self.isDriveLink = True
+        self.isRetry = False
         self.initial_res = None
         self.telegraph_page_size = TELEGRAPH_PAGE_SIZE
+        self.drive_query_results = {}
 
     def get_readable_file_size(self, size_in_bytes) -> str:
         if size_in_bytes is None:
@@ -122,9 +125,7 @@ class GoogleDriveHelper:
                                                        fields='files(id, name, mimeType, size, parents)',
                                                        orderBy='folder, modifiedTime desc').execute()["files"]
             return response
-        except Exception as err:
-            err = str(err).replace('>', '').replace('<', '')
-            LOGGER.error(err)
+        except Exception:
             return "listErr"
 
     def edit_telegraph(self):
@@ -141,12 +142,73 @@ class GoogleDriveHelper:
                 if nxt_page < self.num_of_path:
                     content += f'<b> | <a href="https://telegra.ph/{self.path[nxt_page]}">Next</a></b> ▶️'
                     nxt_page += 1
-            telegra_ph.edit_page(path=self.path[prev_page],
-                                 title='Gdrive Search',
-                                 author_name='CyberSpace',
-                                 author_url='https://github.com/sachinOraon',
-                                 html_content=content)
+            try:
+                telegra_ph.edit_page(path=self.path[prev_page],
+                                     title='Gdrive Search',
+                                     author_name='CyberSpace',
+                                     author_url='https://github.com/sachinOraon',
+                                     html_content=content)
+            except (telegraph.TelegraphException,
+                    RetryAfterError,
+                    requests.exceptions.ConnectionError,
+                    NotAllowedTag,
+                    ParsingException,
+                    InvalidHTML):
+                LOGGER.error("Failed to edit telegraph page")
         return
+
+    def make_index_page(self, folder_id, folder_name):
+        if folder_id in INDEX_PAGES:
+            return INDEX_PAGES.get(folder_id)
+        page_url = None
+        msg = f"╾────────────╼<br>📂 <code>{folder_name}</code><br>╾────────────╼<br>"
+        query = f"'{folder_id}' in parents"
+        try:
+            folder_items = self.__service.files().list(pageSize=TELEGRAPH_PAGE_SIZE,
+                                                       pageToken=None,
+                                                       q=query,
+                                                       corpora='allDrives',
+                                                       orderBy='folder, name',
+                                                       supportsTeamDrives=True,
+                                                       includeItemsFromAllDrives=True).execute()["files"]
+        except Exception:
+            LOGGER.error(f"Error while fetching folder items for: {folder_name}")
+        else:
+            if len(folder_items) == 0:
+                return "EMPTY"
+            for item in folder_items:
+                if item["mimeType"] == "application/vnd.google-apps.folder":
+                    msg += f"📁 <code>{item.get('name')}</code><br>"
+                    if HEROKU_INDEX_URL is not None:
+                        hiurl = f'{HEROKU_INDEX_URL}/{item.get("id")}'
+                        msg += f'⚡ <b><a href="{hiurl}">Index Link</a></b><br><br>'
+                elif item["mimeType"] == "application/vnd.google-apps.shortcut":
+                    continue
+                else:
+                    msg += f"📀 <code>{item.get('name')}</code><br>"
+                    if DLWORKER_URL1 is not None:
+                        dlwurl1 = f'{DLWORKER_URL1}/{requests.utils.quote(item.get("name"), safe="")}?id={item.get("id")}'
+                        msg += f'📥 <b><a href="{dlwurl1}">Download 1</a></b>'
+                    if DLWORKER_URL2 is not None:
+                        dlwurl2 = f'{DLWORKER_URL2}/{requests.utils.quote(item.get("name"), safe="")}?id={item.get("id")}'
+                        msg += f' 🚀 <b><a href="{dlwurl2}">Download 2</a></b><br><br>'
+            try:
+                page_url = telegra_ph.create_page(
+                    title='Gdrive Search',
+                    author_name='CyberSpace',
+                    author_url='https://github.com/sachinOraon',
+                    html_content=msg
+                )["path"]
+                INDEX_PAGES[f"{folder_id}"] = page_url
+            except (telegraph.TelegraphException,
+                    RetryAfterError,
+                    requests.exceptions.ConnectionError,
+                    NotAllowedTag,
+                    ParsingException,
+                    InvalidHTML):
+                pass
+                # LOGGER.error(f"Failed to create page for: {folder_name}")
+        return page_url
 
     def retry_drive_list(self):
         time.sleep(SLEEP_SEC)
@@ -158,16 +220,19 @@ class GoogleDriveHelper:
     def drive_list(self, fileName):
         if self.search_query is None:
             self.search_query = fileName
-        search_type = None
+        if self.retry_count >= 2 and \
+                self.initial_res is not None and \
+                self.initial_res > (self.telegraph_page_size * TELEGRAPH_MAX_NUMOFPAGE):
+            search_type = '-d'
+            self.drive_query_results.clear()
+        else:
+            search_type = '-f'
         quality_check = None
-        chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t']
+        chars = ['\\', "'", '"', r'\a', r'\b', r'\f', r'\n', r'\r', r'\s', r'\t', '(', ')', '[', ']', '{', '}']
         for char in chars:
             fileName = fileName.replace(char, ' ')
         if re.search("^-d ", fileName, re.IGNORECASE):
             search_type = '-d'
-            fileName = fileName[2: len(fileName)]
-        elif re.search("^-f ", fileName, re.IGNORECASE):
-            search_type = '-f'
             fileName = fileName[2: len(fileName)]
         if re.search("2160", fileName):
             quality_check = "2160"
@@ -189,13 +254,18 @@ class GoogleDriveHelper:
         for parent_id in DRIVE_ID:
             add_drive_title = True
             INDEX += 1
-            if all_contents_count > (self.telegraph_page_size * TELEGRAPH_MAX_NUMOFPAGE) and not self.isDriveLink:
+            if all_contents_count > (self.telegraph_page_size * TELEGRAPH_MAX_NUMOFPAGE) and self.isRetry:
                 break
-            response = self.drive_query(parent_id, search_type, fileName, quality_check)
+            if parent_id in self.drive_query_results:
+                response = self.drive_query_results.get(parent_id)
+            else:
+                response = self.drive_query(parent_id, search_type, fileName, quality_check)
             if response == "listErr":
                 LOGGER.error(f"Error while searching: {fileName} in: {DRIVE_NAME[INDEX]} {parent_id}")
                 continue
             else:
+                if parent_id not in self.drive_query_results:
+                    self.drive_query_results[parent_id] = response
                 for file in response:
                     if quality_check and not re.search(quality_check, file.get('name')):
                         continue
@@ -207,34 +277,43 @@ class GoogleDriveHelper:
                         add_drive_title = False
                     # Detect Whether Current Entity is a Folder or File.
                     if file.get('mimeType') == "application/vnd.google-apps.folder":
-                        msg += f"📁 <code>{file.get('name')}<br>(folder)</code><br>"
-                        if INDEX_URL[INDEX] is not None:
-                            url_path = "/".join(
-                                [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
-                            url = f'{INDEX_URL[INDEX]}/{url_path}/'
-                            msg += f' ⚡️ <b><a href="{url}">Index Link 1</a></b>'
+                        if all_contents_count <= (self.telegraph_page_size // 2):
+                            url_path = self.make_index_page(file.get("id"), file.get('name'))
+                            if url_path is not None and url_path != 'EMPTY':
+                                msg += f"📁 <a href='https://telegra.ph/{url_path}'><code>{file.get('name')}</code></a><br>"
+                            elif url_path == 'EMPTY':
+                                continue
+                            else:
+                                msg += f"📁 <code>{file.get('name')}</code><br>"
+                        else:
+                            msg += f"📁 <code>{file.get('name')}</code><br>"
                         if HEROKU_INDEX_URL is not None:
                             hurl = f'{HEROKU_INDEX_URL}/{file.get("id")}'
-                            msg += f' 📀 <b><a href="{hurl}">Index Link 2</a></b>'
-                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut' and self.isDriveLink:
-                        msg += f"♻️ <a href='https://drive.google.com/drive/folders/{file.get('id')}'>{file.get('name')}" \
-                               f"</a> (shortcut)"
-                        # Excluded index link as indexes cant download or open these shortcuts
+                            msg += f'⚡️<b><a href="{hurl}">Index Link</a></b>'
+                        if INDEX_URL[INDEX] is not None:
+                            url_path = "/".join([requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
+                            url = f'{INDEX_URL[INDEX]}/{url_path}/'
+                            msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
+                    elif file.get('mimeType') == 'application/vnd.google-apps.shortcut':
+                        continue
                     else:
                         try:
-                            msg += f"📌 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
+                            msg += f"📀 <code>{file.get('name')} ({self.get_readable_file_size(int(file.get('size')))})</code><br>"
                         except TypeError:
-                            msg += f"📌 <code>{file.get('name')}</code><br>"
-                        if INDEX_URL[INDEX] is not None:
-                            url_path = "/".join(
-                                [requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
-                            iurl = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
-                            msg += f'⚡️ <b><a href="{iurl}">Index Link 1</a></b>'
+                            msg += f"📀 <code>{file.get('name')}</code><br>"
                         if HEROKU_INDEX_URL is not None:
                             hiurl = f'{HEROKU_INDEX_URL}/file/{file.get("id")}'
-                            durl = f'{HEROKU_INDEX_URL}/api/file/download/{requests.utils.quote(file.get("name"), safe="")}?id={file.get("id")}'
-                            msg += f' 📀 <b><a href="{hiurl}">Index Link 2</a></b>'
-                            msg += f' 📥 <b><a href="{durl}">Download</a></b>'
+                            msg += f'⚡ <b><a href="{hiurl}">Index Link</a></b>'
+                        if INDEX_URL[INDEX] is not None:
+                            url_path = "/".join([requests.utils.quote(n, safe='') for n in self.get_recursive_list(file, parent_id)])
+                            url = f'{INDEX_URL[INDEX]}/{url_path}?a=view'
+                            msg += f' ⚡️ <b><a href="{url}">Index Link</a></b>'
+                        if DLWORKER_URL1 is not None:
+                            dlwurl1 = f'{DLWORKER_URL1}/{requests.utils.quote(file.get("name"), safe="")}?id={file.get("id")}'
+                            msg += f' 📥 <b><a href="{dlwurl1}">Download 1</a></b>'
+                        if DLWORKER_URL2 is not None:
+                            dlwurl2 = f'{DLWORKER_URL2}/{requests.utils.quote(file.get("name"), safe="")}?id={file.get("id")}'
+                            msg += f' 🚀 <b><a href="{dlwurl2}">Download 2</a></b>'
                     msg += '<br><br>'
                     content_count += 1
                     all_contents_count += 1
@@ -262,36 +341,36 @@ class GoogleDriveHelper:
                     author_url='https://github.com/sachinOraon',
                     html_content=content
                 )['path'])
-        except telegraph.TelegraphException:
+        except (telegraph.TelegraphException,
+                RetryAfterError,
+                requests.exceptions.ConnectionError,
+                NotAllowedTag,
+                ParsingException,
+                InvalidHTML):
             LOGGER.error(f"Failed to create page for: {fileName}")
             if self.retry_count < MAX_RETRY:
-                self.isDriveLink = False
+                self.isRetry = True
                 self.telegraph_page_size -= 10
                 LOGGER.info(f"Retry search and page creation for: {fileName}")
                 return self.retry_drive_list()
             else:
-                if not self.isDriveLink:
+                if self.isRetry:
                     LOGGER.error(f"Failed to create page for: {fileName} even after retrying")
-                return "error", None
-        except Exception as e:
-            if self.retry_count < MAX_RETRY:
-                LOGGER.error(f"Telegraph error for: {fileName} Retrying after 5 sec")
-                self.isDriveLink = True
-                return self.retry_drive_list()
-            else:
-                LOGGER.error(f"Telegraph error for: {fileName} msg: {str(e)}")
                 return "error", None
         else:
             self.num_of_path = len(self.path)
             if self.num_of_path > 1:
                 self.edit_telegraph()
 
-            if self.isDriveLink:
-                msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
+            if self.isRetry:
+                if self.initial_res == all_contents_count:
+                    msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
+                elif self.initial_res > all_contents_count:
+                    msg = f"💁🏻‍♂ <b>Found <code>{self.initial_res}</code> results for </b><i>{fileName}</i>\n"
+                    msg += f"⚠️ Showing only top <code>{all_contents_count}</code> results. "
+                    msg += "Please refine your query to get appropriate results."
             else:
-                msg = f"💁🏻‍♂ <b>Found <code>{self.initial_res}</code> results for </b><i>{fileName}</i>"
-                msg += "\n⚠️ Showing only top <code>"+str(all_contents_count) if self.initial_res > all_contents_count else str(self.initial_res)
-                msg += "</code> results. Please refine your query to get appropriate results."
+                msg = f"💁🏻‍♂ <b>Found <code>{all_contents_count}</code> results for </b><i>{fileName}</i>"
 
             buttons = button_builder.ButtonMaker()
             buttons.buildbutton("🔎 Tap here to view", f"https://telegra.ph/{self.path[0]}")
