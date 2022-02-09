@@ -64,6 +64,18 @@ try:
 except Exception as err:
     LOGGER.error("Unable to read HEROKU_INDEX_URL")
     HEROKU_INDEX_URL = None
+try:
+    DLWORKER_URL1 = getConfig('DLWORKER_URL1')
+    if len(DLWORKER_URL1) == 0:
+        DLWORKER_URL1 = None
+except KeyError:
+    DLWORKER_URL1 = None
+try:
+    DLWORKER_URL2 = getConfig('DLWORKER_URL2')
+    if len(DLWORKER_URL2) == 0:
+        DLWORKER_URL2 = None
+except KeyError:
+    DLWORKER_URL2 = None
 
 DRIVE_NAME = []
 DRIVE_ID = []
